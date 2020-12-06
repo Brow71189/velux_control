@@ -1,11 +1,10 @@
-#define SHORT_PULSE 430
-#define LONG_PULSE 1210
-#define BIT_DURATION 450
-#define SEQUENCE_PAUSE 30
-#define SENSOR_PIN 10
-#define OUTPUT_PIN 10
+#define BIT_DURATION 450 // us
+#define SEQUENCE_PAUSE 30 // ms
+#define SENSOR_PIN PB3
+#define LED_PIN PB5
+#define POTI_PIN PB2 //Changing this is not enough to change the analog input pin. Also change the corresponing section in setup()
 #define UNSIGNED_LONG_MAX_VALUE 4294967295
-#define SIGNAL_DURATION 20
+#define SIGNAL_DURATION 20 // ms
 #define NUM_BITS_VELUX 24
 #define NUM_BITS_SEQUENCE 21
 #define MAX_SIGNAL_SIZE 45
@@ -16,6 +15,12 @@
 #define SEQUENCE_VELUX 15263976 // 000101110001011100010111 00000000
 #define SEQUENCE_OPEN 585454    // 011101110111011100010 00000000000
 #define SEQUENCE_CLOSE 978574   // 011100010111011101110 00000000000
+
+// define minimum and maximum close delay time in ms
+#define MINIMUM_CLOSE_DELAY 300000 // 5 min
+#define MAXIMUM_CLOSE_DELAY 1800000 // 0.5 h
+
+#define SENSOR_PIN_MASK (1<<SENSOR_PIN);
 
 unsigned long signal_start;
 
@@ -29,19 +34,54 @@ bool timer_started = false;
 
 
 void setup() {
-  // put your setup code here, to run once:
-  // Set output pin to input too so that it has a high impedance and does not disrupt existing controller.
-  pinMode(OUTPUT_PIN, INPUT);
-  pinMode(SENSOR_PIN, INPUT);
+  // Set all pins to input with pullup enabled to make sure we don't have any dangling pins
+  DDRB = 0b0;
+  PORTB = 0b00111111;
+  // Now set the pins we use to the mode they're needed
+  // LED pin should be an output and off by default
+  DDRB |= (1<<LED_PIN);
+  PORTB &= ~(1<<LED_PIN);
+  // Sensor pin stays input, but disable pullup
+  PORTB &= ~(1<<SENSOR_PIN);
+  //  // Set voltage reference to use AREF pin (PB0)
+  //  ADMUX |= (1<<REFS0);
+  //  ADMUX &= ~(1<<REFS1);
+  //  // Use pin PB2 as analog input pin
+  //  ADMUX |= (1<<MUX0);
+  //  ADMUX &= ~(1<<MUX1);
+  //  ADMUX &= ~(1<<MUX2);
+  //  ADMUX &= ~(1<<MUX3);
+  //  // Left adjust analog data (so we only get 8bit resolution
+  //  ADMUX |= (1<<ADLAR);
+  // Combine all of that into one command
+  ADMUX = 0b01100001;
+  // Enable the ADC
+  ADCSRA |= (1<<ADEN);
+  // Enable auto trigger
+  ADCSRA |= (1<<ADATE);
+  // Set prescaler to 128, we don't need fast conversions, so we can use the slowest ADC clock available
+  ADCSRA |= (1<<ADPS2);
+  ADCSRA |= (1<<ADPS1);
+  ADCSRA |= (1<<ADPS0);
+  // Set ADC to free running mode
+  ADCSRB = 0b0;
+  // Disable digital input on our ADC pin
+  DIDR0 |= (1<<ADC1D);
+  // Finally set the "start conversion" bit to start free running mode
+  ADCSRA |= (1<<ADSC);
+  
 
-  //attachInterrupt(digitalPinToInterrupt(SENSOR_PIN), sense, CHANGE);
-
+// For debugging when running on an Arduino it can be useful to have some serial output and allow some
+// commands to be sent via Serial. On Attiny Serial is not available, so don't inlcude it there
+#ifdef Serial
   Serial.begin(115200);
+#endif
 
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+#ifdef Serial
   if (Serial.available()) {
     char cmd = Serial.read();
 
@@ -64,10 +104,13 @@ void loop() {
       // case 'R': print_last_received_sequence();
     }
   }
-  int val = digitalRead(SENSOR_PIN);
+#endif
+
+  int val = PINB & SENSOR_PIN_MASK;
   if (val == 0) {
     signal_start = millis();
     sense(val);
+    
 #ifdef DEBUG
     Serial.println("Received command sequence.");
     for (int i=0; i<MAX_SIGNAL_SIZE; i++) {
@@ -97,6 +140,10 @@ void loop() {
   if (timer_started) {
     unsigned long now = millis();
     unsigned long elapsed;
+
+    byte analog_data = ADCH;
+    close_delay = (MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 256.0 * analog_data + MINIMUM_CLOSE_DELAY;
+    
     if (now < timer_start_time) {
       elapsed = now + UNSIGNED_LONG_MAX_VALUE - timer_start_time;
     } else {
@@ -115,12 +162,12 @@ const unsigned long one = 1;
 void send_bits(unsigned long bits, int num_bits) {
   for (unsigned long i=0; i < num_bits; i++) {
     if (bits & one << i) {
-      digitalWrite(OUTPUT_PIN, HIGH);
+      PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
 #ifdef DEBUG
       Serial.write('1');
 #endif      
     } else {
-      digitalWrite(OUTPUT_PIN, LOW);
+      PORTB &= ~(1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, LOW);
 #ifdef DEBUG
       Serial.write('0');
 #endif
@@ -130,30 +177,30 @@ void send_bits(unsigned long bits, int num_bits) {
 }
 
 void send_open() {
-  pinMode(OUTPUT_PIN, OUTPUT);
-  digitalWrite(OUTPUT_PIN, HIGH);
+  DDRB |= (1<<SENSOR_PIN);  // pinMode(SENSOR_PIN, OUTPUT);
+  PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
   send_bits(SEQUENCE_VELUX, NUM_BITS_VELUX);
   send_bits(SEQUENCE_OPEN, NUM_BITS_SEQUENCE);
-  digitalWrite(OUTPUT_PIN, HIGH);
+  PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
   delay(SEQUENCE_PAUSE);
   send_bits(SEQUENCE_VELUX, NUM_BITS_VELUX);
   send_bits(SEQUENCE_OPEN, NUM_BITS_SEQUENCE);
-  digitalWrite(OUTPUT_PIN, HIGH);
-  pinMode(OUTPUT_PIN, INPUT);
+  PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
+  DDRB &= ~(1<<SENSOR_PIN);  // pinMode(SENSOR_PIN, INPUT);
   
 }
 
 void send_close() {
-  pinMode(OUTPUT_PIN, OUTPUT);
-  digitalWrite(OUTPUT_PIN, HIGH);
+  DDRB |= (1<<SENSOR_PIN);  // pinMode(SENSOR_PIN, OUTPUT);
+  PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
   send_bits(SEQUENCE_VELUX, NUM_BITS_VELUX);
   send_bits(SEQUENCE_CLOSE, NUM_BITS_SEQUENCE);
-  digitalWrite(OUTPUT_PIN, HIGH);
+  PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
   delay(SEQUENCE_PAUSE);
   send_bits(SEQUENCE_VELUX, NUM_BITS_VELUX);
   send_bits(SEQUENCE_CLOSE, NUM_BITS_SEQUENCE);
-  digitalWrite(OUTPUT_PIN, HIGH);
-  pinMode(OUTPUT_PIN, INPUT);
+  PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
+  DDRB &= ~(1<<SENSOR_PIN);  // pinMode(SENSOR_PIN, INPUT);
 }
 
 void sense(int start_value) {
@@ -172,8 +219,8 @@ void sense(int start_value) {
     if (now - signal_start + offset > SIGNAL_DURATION) {
       break;
     }
-
-    value = digitalRead(SENSOR_PIN);
+    
+    value = PINB & SENSOR_PIN_MASK;  // value = digitalRead(SENSOR_PIN);
     if (value != last_value) {
       sequence_times[counter] = micros();
       sequence[counter] = value;
