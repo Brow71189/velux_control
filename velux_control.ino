@@ -41,8 +41,9 @@ void setup() {
   // LED pin should be an output and off by default
   DDRB |= (1<<LED_PIN);
   PORTB &= ~(1<<LED_PIN);
-  // Sensor pin stays input, but disable pullup
-  // PORTB &= ~(1<<SENSOR_PIN);
+  // Disable pullup on ADC pin and AREF pin 
+  PORTB &= ~(1<<POTI_PIN);
+  PORTB &= ~(1<<PB0);
   //  // Set voltage reference to use AREF pin (PB0)
   //  ADMUX |= (1<<REFS0);
   //  ADMUX &= ~(1<<REFS1);
