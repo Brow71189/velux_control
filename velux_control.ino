@@ -143,6 +143,9 @@ void loop() {
 
     byte analog_data = ADCH;
     close_delay = (MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 256.0 * analog_data + MINIMUM_CLOSE_DELAY;
+
+    // Switch on the timer LED
+    PORTB |= (1<<LED_PIN);  // digitalWrite(LED_PIN, HIGH);
     
     if (now < timer_start_time) {
       elapsed = now + UNSIGNED_LONG_MAX_VALUE - timer_start_time;
@@ -153,6 +156,8 @@ void loop() {
     if (elapsed > close_delay) {
       timer_started = false;
       send_close();
+      // Switch off timer LED
+      PORTB &= ~(1<<LED_PIN);
     }
   }
 }
