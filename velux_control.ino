@@ -17,8 +17,8 @@
 #define SEQUENCE_CLOSE 978574   // 011100010111011101110 00000000000
 
 // define minimum and maximum close delay time in ms
-#define MINIMUM_CLOSE_DELAY 300000 // 5 min
-#define MAXIMUM_CLOSE_DELAY 1800000 // 0.5 h
+#define MINIMUM_CLOSE_DELAY 300000.0 // 5 min
+#define MAXIMUM_CLOSE_DELAY 1800000.0 // 0.5 h
 
 #define SENSOR_PIN_MASK (1<<SENSOR_PIN);
 
@@ -142,8 +142,8 @@ void loop() {
     unsigned long now = millis();
     unsigned long elapsed;
 
-    byte analog_data = ADCH;
-    close_delay = (MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 256.0 * analog_data + MINIMUM_CLOSE_DELAY;
+    float analog_data = (float)ADCH;
+    close_delay = (unsigned long)((MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 255.0 * analog_data + MINIMUM_CLOSE_DELAY);
 
     // Switch on the timer LED
     PORTB |= (1<<LED_PIN);  // digitalWrite(LED_PIN, HIGH);
@@ -166,7 +166,7 @@ void loop() {
 const unsigned long one = 1;
 
 void send_bits(unsigned long bits, int num_bits) {
-  for (unsigned long i=0; i < num_bits; i++) {
+  for (int i=0; i < num_bits; i++) {
     if (bits & one << i) {
       PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
 #ifdef DEBUG
