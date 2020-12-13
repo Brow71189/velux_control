@@ -192,6 +192,7 @@ void send_open() {
   send_bits(SEQUENCE_OPEN, NUM_BITS_SEQUENCE);
   PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
   DDRB &= ~(1<<SENSOR_PIN);  // pinMode(SENSOR_PIN, INPUT);
+  PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
   
 }
 
@@ -206,6 +207,7 @@ void send_close() {
   send_bits(SEQUENCE_CLOSE, NUM_BITS_SEQUENCE);
   PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
   DDRB &= ~(1<<SENSOR_PIN);  // pinMode(SENSOR_PIN, INPUT);
+  PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
 }
 
 void sense(int start_value) {
