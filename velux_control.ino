@@ -1,7 +1,7 @@
 #define BIT_DURATION 450 // us
 #define SEQUENCE_PAUSE 30 // ms
 #define SENSOR_PIN PB3
-#define LED_PIN PB5
+#define LED_PIN PB1
 #define POTI_PIN PB2 //Changing this is not enough to change the analog input pin. Also change the corresponing section in setup()
 #define UNSIGNED_LONG_MAX_VALUE 4294967295
 #define SIGNAL_DURATION 20 // ms
@@ -42,7 +42,7 @@ void setup() {
   DDRB |= (1<<LED_PIN);
   PORTB &= ~(1<<LED_PIN);
   // Sensor pin stays input, but disable pullup
-  PORTB &= ~(1<<SENSOR_PIN);
+  // PORTB &= ~(1<<SENSOR_PIN);
   //  // Set voltage reference to use AREF pin (PB0)
   //  ADMUX |= (1<<REFS0);
   //  ADMUX &= ~(1<<REFS1);
