@@ -69,7 +69,7 @@ void setup() {
   DIDR0 |= (1<<ADC1D);
   // Finally set the "start conversion" bit to start free running mode
   ADCSRA |= (1<<ADSC);
- 
+}
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -89,7 +89,7 @@ void loop() {
     unsigned long now = millis();
     unsigned long elapsed;
 
-    float analog_data = (float)ADCH;
+    float analog_data = 0; //(float)ADCH;
     close_delay = (unsigned long)((MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 255.0 * analog_data + MINIMUM_CLOSE_DELAY);
 
     // Switch on the timer LED
