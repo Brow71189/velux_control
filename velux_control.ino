@@ -8,7 +8,6 @@
 #define NUM_BITS_VELUX 24
 #define NUM_BITS_SEQUENCE 21
 #define MAX_SIGNAL_SIZE 45
-// #define DEBUG
 
 // define sequences as long integers but in reverse bit order so that first bit in the sequence
 // can be set with 1 << 0 and the consecutive ones with 1 << 1...num_bits
@@ -70,71 +69,19 @@ void setup() {
   DIDR0 |= (1<<ADC1D);
   // Finally set the "start conversion" bit to start free running mode
   ADCSRA |= (1<<ADSC);
-  
-
-// For debugging when running on an Arduino it can be useful to have some serial output and allow some
-// commands to be sent via Serial. On Attiny Serial is not available, so don't inlcude it there
-#ifdef Serial
-  Serial.begin(115200);
-#endif
-
-}
+ 
 
 void loop() {
   // put your main code here, to run repeatedly:
-#ifdef Serial
-  if (Serial.available()) {
-    char cmd = Serial.read();
-
-    switch (cmd) {
-      case 'O': send_open();
-#ifndef DEBUG
-                Serial.write('O');
-#endif
-                break;
-      case 'C': send_close();
-#ifndef DEBUG
-                Serial.write('C');
-#endif
-                break;
-      case 'D': float delay_time = Serial.parseFloat();
-                if (delay_time > 0) {
-                  close_delay = (unsigned long) delay_time;
-                }
-                Serial.print(close_delay); Serial.println("D");
-      // case 'R': print_last_received_sequence();
-    }
-  }
-#endif
-
   int val = PINB & SENSOR_PIN_MASK;
   if (val == 0) {
     signal_start = millis();
     sense(val);
-    
-#ifdef DEBUG
-    Serial.println("Received command sequence.");
-    for (int i=0; i<MAX_SIGNAL_SIZE; i++) {
-      Serial.print(sequence[i]);
-    }
-    Serial.println("");
-    for (int i=0; i<MAX_SIGNAL_SIZE; i++) {
-      Serial.println(sequence_times[i]);
-    }
-    Serial.println("");
-#endif
     decode_recorded_sequence();
-#ifdef DEBUG
-    Serial.print("Decoded Velux part: "); Serial.println(sequence_velux);
-    Serial.print("Decoded part 2: "); Serial.println(sequence_part_two);
-#endif
     if (sequence_velux == SEQUENCE_VELUX && sequence_part_two == SEQUENCE_OPEN) {
       delay(SEQUENCE_PAUSE + SIGNAL_DURATION); // Pause so that the repetition of the signal sent by the controller does not disturb us
       timer_start_time = millis();
       timer_started = true;
-#ifdef DEBUG
-      Serial.println("Starting timer.");
-#endif
     }
   }
 
@@ -169,14 +116,8 @@ void send_bits(unsigned long bits, int num_bits) {
   for (int i=0; i < num_bits; i++) {
     if (bits & one << i) {
       PORTB |= (1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, HIGH);
-#ifdef DEBUG
-      Serial.write('1');
-#endif      
     } else {
       PORTB &= ~(1<<SENSOR_PIN);  // digitalWrite(SENSOR_PIN, LOW);
-#ifdef DEBUG
-      Serial.write('0');
-#endif
     }
     delayMicroseconds(BIT_DURATION);
   }
