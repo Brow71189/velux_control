@@ -3,6 +3,7 @@
 #define SENSOR_PIN PB3
 #define LED_PIN PB1
 #define POTI_PIN PB2 //Changing this is not enough to change the analog input pin. Also change the corresponing section in setup()
+#define OPEN_SWITCH_PIN PB4// If this pin is pulled to GND, send "open" sequence
 #define UNSIGNED_LONG_MAX_VALUE 4294967295
 #define SIGNAL_DURATION 20 // ms
 #define NUM_BITS_VELUX 24
@@ -17,16 +18,19 @@
 
 // define minimum and maximum close delay time in ms
 #define MINIMUM_CLOSE_DELAY 300000.0 // 5 min
-#define MAXIMUM_CLOSE_DELAY 1800000.0 // 0.5 h
+// We use the 1.1 V reference but in the circuit the poti can only go up to a maximum of VCC / 11 = 0.46 V
+// So adjust the maximum delay so that we actually get 0.5 h when the poti is at max.
+#define MAXIMUM_CLOSE_DELAY 4356000.0 // 0.5 h
 
-#define SENSOR_PIN_MASK (1<<SENSOR_PIN);
+#define SENSOR_PIN_MASK 1<<SENSOR_PIN
+#define OPEN_SWITCH_PIN_MASK 1<<OPEN_SWITCH_PIN
 
 unsigned long signal_start;
 
 unsigned long sequence_velux = 0;
 unsigned long sequence_part_two = 0;
-byte sequence[MAX_SIGNAL_SIZE];
-unsigned long sequence_times[MAX_SIGNAL_SIZE];
+byte sequence[MAX_SIGNAL_SIZE] = {0};
+unsigned long sequence_times[MAX_SIGNAL_SIZE] = {0};
 unsigned long timer_start_time;
 unsigned long close_delay = 60000;
 bool timer_started = false;
@@ -40,12 +44,12 @@ void setup() {
   // LED pin should be an output and off by default
   DDRB |= (1<<LED_PIN);
   PORTB &= ~(1<<LED_PIN);
-  // Disable pullup on ADC pin and AREF pin 
+  // Disable pullup on ADC pin
   PORTB &= ~(1<<POTI_PIN);
-  PORTB &= ~(1<<PB0);
-  //  // Set voltage reference to use AREF pin (PB0)
-  //  ADMUX |= (1<<REFS0);
-  //  ADMUX &= ~(1<<REFS1);
+  //  // Set voltage reference to use internal 1.1 V
+  //  ADMUX &= ~(1<<REFS0);
+  //  ADMUX |= (1<<REFS1);
+  //  ADMUX &= ~(1<<REFS2);
   //  // Use pin PB2 as analog input pin
   //  ADMUX |= (1<<MUX0);
   //  ADMUX &= ~(1<<MUX1);
@@ -54,7 +58,8 @@ void setup() {
   //  // Left adjust analog data (so we only get 8bit resolution
   //  ADMUX |= (1<<ADLAR);
   // Combine all of that into one command
-  ADMUX = 0b01100001;
+  // ADMUX = 0b01100001;
+  ADMUX = 0b10100001;
   // Enable the ADC
   ADCSRA |= (1<<ADEN);
   // Enable auto trigger
@@ -72,7 +77,6 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   int val = PINB & SENSOR_PIN_MASK;
   if (val == 0) {
     signal_start = millis();
@@ -85,12 +89,27 @@ void loop() {
     }
   }
 
+  val = PINB & OPEN_SWITCH_PIN_MASK;
+  if (val == 0) {
+    send_open();
+    // Let the LED blink twice as confirmation
+    PORTB &= ~(1<<LED_PIN);
+    delay(250);
+    PORTB |= (1<<LED_PIN);  // digitalWrite(LED_PIN, HIGH);
+    delay(250);
+    PORTB &= ~(1<<LED_PIN);
+    delay(250);
+    PORTB |= (1<<LED_PIN);  // digitalWrite(LED_PIN, HIGH);
+    delay(250);
+    PORTB &= ~(1<<LED_PIN);
+  }
+
   if (timer_started) {
     unsigned long now = millis();
     unsigned long elapsed;
 
-    float analog_data = 0; //(float)ADCH;
-    close_delay = (unsigned long)((MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 255.0 * analog_data + MINIMUM_CLOSE_DELAY);
+    int analog_data = ADCH;
+    close_delay = (unsigned long)((MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 255.0 * ((float)analog_data) + MINIMUM_CLOSE_DELAY);
 
     // Switch on the timer LED
     PORTB |= (1<<LED_PIN);  // digitalWrite(LED_PIN, HIGH);
