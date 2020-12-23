@@ -18,9 +18,7 @@
 
 // define minimum and maximum close delay time in ms
 #define MINIMUM_CLOSE_DELAY 300000.0 // 5 min
-// We use the 1.1 V reference but in the circuit the poti can only go up to a maximum of VCC / 11 = 0.46 V
-// So adjust the maximum delay so that we actually get 0.5 h when the poti is at max.
-#define MAXIMUM_CLOSE_DELAY 4356000.0 // 0.5 h
+#define MAXIMUM_CLOSE_DELAY 1800000.0 // 30 min
 
 #define SENSOR_PIN_MASK 1<<SENSOR_PIN
 #define OPEN_SWITCH_PIN_MASK 1<<OPEN_SWITCH_PIN
@@ -109,7 +107,9 @@ void loop() {
     unsigned long elapsed;
 
     int analog_data = ADCH;
-    close_delay = (unsigned long)((MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 255.0 * ((float)analog_data) + MINIMUM_CLOSE_DELAY);
+    // We only get voltages up to 0.485 V from our poti, but the reference voltage is 1.1 V. With 8 bit resolution
+    // this results in a maximum of about 112, so use that here.
+    close_delay = (unsigned long)((MAXIMUM_CLOSE_DELAY - MINIMUM_CLOSE_DELAY) / 112.0 * ((float)analog_data) + MINIMUM_CLOSE_DELAY);
 
     // Switch on the timer LED
     PORTB |= (1<<LED_PIN);  // digitalWrite(LED_PIN, HIGH);
