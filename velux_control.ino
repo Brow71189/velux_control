@@ -3,7 +3,7 @@
 #define SENSOR_PIN PB3
 #define LED_PIN PB1
 #define POTI_PIN PB2 //Changing this is not enough to change the analog input pin. Also change the corresponing section in setup()
-#define OPEN_SWITCH_PIN PB4// If this pin is pulled to GND, send "open" sequence
+// #define OPEN_SWITCH_PIN PB4// If this pin is pulled to GND, send "open" sequence
 #define UNSIGNED_LONG_MAX_VALUE 4294967295
 #define SIGNAL_DURATION 20 // ms
 #define NUM_BITS_VELUX 24
@@ -18,7 +18,7 @@
 
 // define minimum and maximum close delay time in ms
 #define MINIMUM_CLOSE_DELAY 300000.0 // 5 min
-#define MAXIMUM_CLOSE_DELAY 1800000.0 // 30 min
+#define MAXIMUM_CLOSE_DELAY 1500000.0 // 30 min
 
 #define SENSOR_PIN_MASK 1<<SENSOR_PIN
 #define OPEN_SWITCH_PIN_MASK 1<<OPEN_SWITCH_PIN
@@ -87,6 +87,7 @@ void loop() {
     }
   }
 
+#ifdef OPEN_SWITCH_PIN
   val = PINB & OPEN_SWITCH_PIN_MASK;
   if (val == 0) {
     send_open();
@@ -101,6 +102,7 @@ void loop() {
     delay(250);
     PORTB &= ~(1<<LED_PIN);
   }
+#endif
 
   if (timer_started) {
     unsigned long now = millis();
